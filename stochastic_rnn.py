@@ -112,7 +112,7 @@ class StochasticRNN(object):
     def zero_state(self, batch_size, dtype):
         ## Make the initial state of the hidden and latent layer - (h and z)
         return StochasticRNNState(
-            rnn_state=self.rnn_cell.zero_state(batch_size),
+            rnn_state=self.rnn_cell.zero_state(batch_size, dtype=dtype),
             latent_encoded=tf.zeros([batch_size, self.latent_encoder.output_size], dtype=dtype)
         )
 
@@ -334,6 +334,8 @@ def create_stochastic_rnn(
         initializers=INITIALIZERS,
         name='latent_encoder'
     )
+    ## By applying Conditional Normal Distribution we are getting the latent
+    ## states by giving it the data
     transition = ConditionalNormalDistribution(
         size=latent_size,
         hidden_layer_sizes=fcnet_hidden_sizes,
@@ -379,18 +381,3 @@ def create_stochastic_rnn(
         transition, emission, proposal_type, proposal=proposal,
         rev_rnn_cell=rev_rnn_cell, tilt=tilt, random_seed=random_seed
     )
-
-def __build_model():
-    pass
-
-if __name__ == '__main__':
-    tf.reset_default_graph()
-    model_built = False
-    sess = tf.Session()
-
-    ## Intializing parametes for the model
-    batch_size = 64
-    latent_dimensions = 16
-
-    ops = __build_model()
-    sess.run(tf.global_variables_initializer())
