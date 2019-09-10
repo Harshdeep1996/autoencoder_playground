@@ -54,6 +54,7 @@ class ConditionalNormalDistribution(object):
     mu, sigma = self.condition(args, **kwargs)
     return tf.contrib.distributions.Normal(loc=mu, scale=sigma)
 
+
 class NormalApproximatePosterior(ConditionalNormalDistribution):
   """A Normally-distributed approx. posterior with res_q parameterization."""
 
@@ -215,12 +216,13 @@ class TrainableStochasticRNN(StochasticRNN):
         inputs_encoded = self.encode_all(inputs, self.data_encoder)
 
         ## Feed it into the RNN
-        ## time major is letting if the inputs are of the form of [max__l]
+        ## time major is letting if the inputs are of the form of [max__l] 
+        ## This is basically getting the next hidden state given the inputs and previous hidden state
         rnn_out, _ = tf.nn.dynammic_rnn(
             self.rnn_cell, inputs_encoded, time_major=True, dtype=tf.float32, scope='forward_rnn')
         self.rnn_ta = self.ta_for_tensor(rnn_out)
 
-        # This is for SMOOTHING - learning the inference by reversing the inputs
+        # This is for SMOOTHING - learning the inference by reversing the inputs for all time steps
         if self.rev_rnn_cell:
             targets_and_rnn_out = tf.concat([rnn_out, targets_encoded], 2) # Along 2nd axis/data points
             reversed_input = tf.reverse_sequence(targets_and_rnn_out, seq_lengths, seq_axis=0, batch_axis=1)
@@ -253,7 +255,7 @@ class TrainableStochasticRNN(StochasticRNN):
 
     def tilt(self, rnn_out, latent_encoded, targets):
         # Calculating the log probability of the output
-        # given in the hidden state and latent stat
+        # given in the hidden state and latent state
         r_func = self._tilt(rnn_out, latent_encoded)
         return tf.reduce_sum(r_func.log_prob(targets), axis=-1)
 
@@ -340,10 +342,11 @@ def create_stochastic_rnn(
         size=latent_size,
         hidden_layer_sizes=fcnet_hidden_sizes,
         sigma_min=sigma_min,
-        raw_sigma_bias=raw_sigma_bias,
+        raw_sigma_bias=raw_sigma_bias,qui
         initializers=INITIALIZERS,
         name='prior'
     )
+    ## For getting the reconstructed output
     emission = ConditionalNormalDistribution(
         size=data_size,
         hidden_layer_sizes=fcnet_hidden_sizes,
