@@ -1,62 +1,63 @@
-import sonnet as snt
+# %load /mnt/c/Users/harshdeep.harshdeep/AppData/Local/Packages/CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc/LocalState/stochastic_rnn.py
+import sonnet as snet
 import tensorflow as tf
 from collections import namedtuple
 
 class ConditionalNormalDistribution(object):
-  """A Normal distribution conditioned on Tensor inputs via a fc network."""
+"""A Normal distribution conditioned on Tensor inputs via a fc network."""
 
-  def __init__(self, size, hidden_layer_sizes, sigma_min=0.0,
+    def __init__(self, size, hidden_layer_sizes, sigma_min=0.0,
                raw_sigma_bias=0.25, hidden_activation_fn=tf.nn.relu,
                initializers=None, name="conditional_normal_distribution"):
-    """Creates a conditional Normal distribution.
-    Args:
-      size: The dimension of the random variable.
-      hidden_layer_sizes: The sizes of the hidden layers of the fully connected
-        network used to condition the distribution on the inputs.
-      sigma_min: The minimum standard deviation allowed, a scalar.
-      raw_sigma_bias: A scalar that is added to the raw standard deviation
-        output from the fully connected network. Set to 0.25 by default to
-        prevent standard deviations close to 0.
-      hidden_activation_fn: The activation function to use on the hidden layers
-        of the fully connected network.
-      initializers: The variable intitializers to use for the fully connected
-        network. The network is implemented using snt.nets.MLP so it must
-        be a dictionary mapping the keys 'w' and 'b' to the initializers for
-        the weights and biases. Defaults to xavier for the weights and zeros
-        for the biases when initializers is None.
-      name: The name of this distribution, used for sonnet scoping.
-    """
-    self.sigma_min = sigma_min
-    self.raw_sigma_bias = raw_sigma_bias
-    self.name = name
-    self.size = size
-    if initializers is None:
-      initializers = DEFAULT_INITIALIZERS
-    self.fcnet = snet.nets.MLP(
-        output_sizes=hidden_layer_sizes + [2 * size],
-        activation=hidden_activation_fn,
-        initializers=initializers,
-        activate_final=False,
-        use_bias=True,
-        name=name + "_fcnet")
+        """Creates a conditional Normal distribution.
+        Args:
+          size: The dimension of the random variable.
+          hidden_layer_sizes: The sizes of the hidden layers of the fully connected
+            network used to condition the distribution on the inputs.
+          sigma_min: The minimum standard deviation allowed, a scalar.
+          raw_sigma_bias: A scalar that is added to the raw standard deviation
+            output from the fully connected network. Set to 0.25 by default to
+            prevent standard deviations close to 0.
+          hidden_activation_fn: The activation function to use on the hidden layers
+            of the fully connected network.
+          initializers: The variable intitializers to use for the fully connected
+            network. The network is implemented using snet.nets.MLP so it must
+            be a dictionary mapping the keys 'w' and 'b' to the initializers for
+            the weights and biases. Defaults to xavier for the weights and zeros
+            for the biases when initializers is None.
+          name: The name of this distribution, used for sonnet scoping.
+        """
+        self.sigma_min = sigma_min
+        self.raw_sigma_bias = raw_sigma_bias
+        self.name = name
+        self.size = size
+        if initializers is None:
+            initializers = DEFAULT_INITIALIZERS
+        self.fcnet = snet.nets.MLP(
+            output_sizes=hidden_layer_sizes + [2 * size],
+            activation=hidden_activation_fn,
+            initializers=initializers,
+            activate_final=False,
+            use_bias=True,
+            name=name + "_fcnet")
 
-  def condition(self, tensor_list, **unused_kwargs):
-    """Computes the parameters of a normal distribution based on the inputs."""
-    inputs = tf.concat(tensor_list, axis=1)
-    outs = self.fcnet(inputs)
-    mu, sigma = tf.split(outs, 2, axis=1)
-    sigma = tf.maximum(tf.nn.softplus(sigma + self.raw_sigma_bias),
-                       self.sigma_min)
-    return mu, sigma
+    def condition(self, tensor_list, **unused_kwargs):
+        """Computes the parameters of a normal distribution based on the inputs."""
+        inputs = tf.concat(tensor_list, axis=1)
+        outs = self.fcnet(inputs)
+        mu, sigma = tf.split(outs, 2, axis=1)
+        sigma = tf.maximum(tf.nn.softplus(sigma + self.raw_sigma_bias),
+                           self.sigma_min)
+        return mu, sigma
 
-  def __call__(self, *args, **kwargs):
-    """Creates a normal distribution conditioned on the inputs."""
-    mu, sigma = self.condition(args, **kwargs)
-    return tf.contrib.distributions.Normal(loc=mu, scale=sigma)
+    def __call__(self, *args, **kwargs):
+        """Creates a normal distribution conditioned on the inputs."""
+        mu, sigma = self.condition(args, **kwargs)
+        return tf.contrib.distributions.Normal(loc=mu, scale=sigma)
 
 
 class NormalApproximatePosterior(ConditionalNormalDistribution):
-  """A Normally-distributed approx. posterior with res_q parameterization."""
+"""A Normally-distributed approx. posterior with res_q parameterization."""
 
   def __init__(self, size, hidden_layer_sizes, sigma_min=0.0,
                raw_sigma_bias=0.25, hidden_activation_fn=tf.nn.relu,
@@ -69,24 +70,24 @@ class NormalApproximatePosterior(ConditionalNormalDistribution):
         name=name)
     self.smoothing = smoothing
 
-  def condition(self, tensor_list, prior_mu, smoothing_tensors=None):
-    """Generates the mean and variance of the normal distribution.
-    Args:
-      tensor_list: The list of Tensors to condition on. Will be concatenated and
-        fed through a fully connected network.
-      prior_mu: The mean of the prior distribution associated with this
-        approximate posterior. Will be added to the mean produced by
-        this approximate posterior, in res_q fashion.
-      smoothing_tensors: A list of Tensors. If smoothing is True, these Tensors
-        will be concatenated with the tensors in tensor_list.
-    Returns:
-      mu: The mean of the approximate posterior.
-      sigma: The standard deviation of the approximate posterior.
-    """
-    if self.smoothing:
-      tensor_list.extend(smoothing_tensors)
-    mu, sigma = super(NormalApproximatePosterior, self).condition(tensor_list)
-    return mu + prior_mu, sigma
+    def condition(self, tensor_list, prior_mu, smoothing_tensors=None):
+        """Generates the mean and variance of the normal distribution.
+        Args:
+          tensor_list: The list of Tensors to condition on. Will be concatenated and
+            fed through a fully connected network.
+          prior_mu: The mean of the prior distribution associated with this
+            approximate posterior. Will be added to the mean produced by
+            this approximate posterior, in res_q fashion.
+          smoothing_tensors: A list of Tensors. If smoothing is True, these Tensors
+            will be concatenated with the tensors in tensor_list.
+        Returns:
+          mu: The mean of the approximate posterior.
+          sigma: The standard deviation of the approximate posterior.
+        """
+        if self.smoothing:
+            tensor_list.extend(smoothing_tensors)
+        mu, sigma = super(NormalApproximatePosterior, self).condition(tensor_list)
+        return mu + prior_mu, sigma
 
 
 ##### STOCHASTIC RNN ######
@@ -184,20 +185,20 @@ class TrainableStochasticRNN(StochasticRNN):
             clear_after_read=clear_after_read).unstack(x)
 
     def encode_all(self, inputs, encoder):
-      """Encodes a timeseries of inputs with a time independent encoder.
-      Args:
+        """Encodes a timeseries of inputs with a time independent encoder.
+        Args:
         inputs: A [time, batch, feature_dimensions] tensor.
         encoder: A network that takes a [batch, features_dimensions] input and
           encodes the input.
-      Returns: 
+        Returns: 
         A [time, batch, encoded_feature_dimensions] output tensor.
-      """
-      input_shape = tf.shape(inputs)
-      num_timesteps, batch_size = input_shape[0], input_shape[1]
-      reshaped_inputs = tf.reshape(inputs, [-1, inputs.shape[-1]])
-      inputs_encoded = encoder(reshaped_inputs)
-      inputs_encoded = tf.reshape(inputs_encoded, [num_timesteps, batch_size, encoder.output_size])
-      return inputs_encoded
+        """
+        input_shape = tf.shape(inputs)
+        num_timesteps, batch_size = input_shape[0], input_shape[1]
+        reshaped_inputs = tf.reshape(inputs, [-1, inputs.shape[-1]])
+        inputs_encoded = encoder(reshaped_inputs)
+        inputs_encoded = tf.reshape(inputs_encoded, [num_timesteps, batch_size, encoder.output_size])
+        return inputs_encoded
 
     def set_observations(self, observations, seq_lengths):
         """
@@ -342,7 +343,7 @@ def create_stochastic_rnn(
         size=latent_size,
         hidden_layer_sizes=fcnet_hidden_sizes,
         sigma_min=sigma_min,
-        raw_sigma_bias=raw_sigma_bias,qui
+        raw_sigma_bias=raw_sigma_bias,
         initializers=INITIALIZERS,
         name='prior'
     )
@@ -357,6 +358,7 @@ def create_stochastic_rnn(
     ## Instantiating 
     proposal = None
     if proposal_type in ['filtering', 'smoothing']:
+        ## Approximating the output with the one from the latent space
         proposal = NormalApproximatePosterior(
             size=latent_size,
             hidden_layer_sizes=fcnet_hidden_sizes,
